@@ -1,0 +1,1 @@
+This is a personal project to create a word document with specifici image sizes loaded in the app. It is a real application that is useful for the people who works con cyber coffes a popular service in Ecuador where people do the printing of documents.
