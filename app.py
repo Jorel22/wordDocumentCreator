@@ -4,6 +4,7 @@ from docx import Document
 from docx.shared import Cm
 import os
 import tkinter as tk
+import io # Necesario para guardar la imagen en memoria
 
 
 class DocCreatorApp:
@@ -13,26 +14,48 @@ class DocCreatorApp:
 
         self.uploaded_images_data = []
         self.image_display_frames = []
-        self.dimensions_entries = []
+        self.dimensions_entries = [] # Stores {"width": Entry_Widget, "height": Entry_Widget, "original_path": str}
+
+        # --- Nueva sección de control global de dimensiones ---
+        self.global_dimensions_frame = tk.LabelFrame(self.root, text="Dimensiones globales para todas las imágenes")
+        self.global_dimensions_frame.pack(pady=10, padx=10, fill=tk.X) # Pack this frame at the top
+
+        tk.Label(self.global_dimensions_frame, text="Ancho (cm):").grid(row=0, column=0, padx=5, pady=5)
+        self.global_width_entry = tk.Entry(self.global_dimensions_frame, width=10)
+        self.global_width_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(self.global_dimensions_frame, text="Altura (cm):").grid(row=0, column=2, padx=5, pady=5)
+        self.global_height_entry = tk.Entry(self.global_dimensions_frame, width=10)
+        self.global_height_entry.grid(row=0, column=3, padx=5, pady=5)
+
+        self.apply_all_button = tk.Button(self.global_dimensions_frame, text="Aplicar a todas", command=self.apply_global_dimensions)
+        self.apply_all_button.grid(row=0, column=4, padx=10, pady=5)
+        self.apply_all_button.config(state=tk.DISABLED) # Deshabilitar inicialmente
+
+        # --- Fin de la nueva sección de control global ---
+
         self.upload_button = tk.Button(
             self.root, text="Subir varias imágenes", command=self.upload_images
         )
         self.upload_button.pack(pady=10)
 
-        # Button to create the Word document
         self.create_doc_button = tk.Button(
             self.root,
             text="Crear documento de Word",
             command=self.create_document_with_images,
         )
         self.create_doc_button.pack(pady=5)
-        self.create_doc_button.config(state=tk.DISABLED)  # Disable initially
+        self.create_doc_button.config(state=tk.DISABLED)
 
-        self.canvas = tk.Canvas(root)
+        # Usar un Frame para contener el Canvas y Scrollbar para mejor organización
+        canvas_frame = tk.Frame(self.root)
+        canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.canvas = tk.Canvas(canvas_frame)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.scrollbar = tk.Scrollbar(
-            root, orient=tk.VERTICAL, command=self.canvas.yview
+            canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview
         )
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -45,20 +68,18 @@ class DocCreatorApp:
         self.images_frame = tk.Frame(self.canvas)
         self.canvas.create_window((0, 0), window=self.images_frame, anchor="nw")
 
-        # Bind scroll wheel to the canvas (for better UX)
         self.images_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion = self.canvas.bbox("all")))
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel) # Windows/macOS
-        self.canvas.bind_all("<Button-4>", self._on_mousewheel) # Linux scroll up
-        self.canvas.bind_all("<Button-5>", self._on_mousewheel) # Linux scroll down
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
-        # Define how many columns you want per row
-        self.columns_per_row = 5 # You can adjust this number
-    
+        self.columns_per_row = 5 # Puedes ajustar este número
+
     def _on_mousewheel(self, event):
-        if self.canvas.winfo_exists(): # Check if canvas still exists
-            if event.num == 4 or event.delta > 0: # Scroll up
+        if self.canvas.winfo_exists():
+            if event.num == 4 or event.delta > 0:
                 self.canvas.yview_scroll(-1, "units")
-            elif event.num == 5 or event.delta < 0: # Scroll down
+            elif event.num == 5 or event.delta < 0:
                 self.canvas.yview_scroll(1, "units")
 
     def upload_images(self):
@@ -69,7 +90,6 @@ class DocCreatorApp:
         if not file_paths:
             return
 
-        # Clear previous images and data
         for frame in self.image_display_frames:
             frame.destroy()
         self.image_display_frames.clear()
@@ -82,21 +102,22 @@ class DocCreatorApp:
                 self.uploaded_images_data.append({"path": file_path, "image": image})
                 self.display_image(
                     image, i, file_path
-                )  # Pass file_path to display_image
+                )
             except Exception as e:
                 messagebox.showerror(
                     "Error",
                     f"Error procesando imagen {os.path.basename(file_path)}: {e}",
                 )
-                
+
         self.images_frame.update_idletasks()
         self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
-        # Enable the "Create Doc" button if images are uploaded
         if self.uploaded_images_data:
             self.create_doc_button.config(state=tk.NORMAL)
+            self.apply_all_button.config(state=tk.NORMAL) # Habilitar el botón "Aplicar a todas"
         else:
             self.create_doc_button.config(state=tk.DISABLED)
+            self.apply_all_button.config(state=tk.DISABLED) # Deshabilitar si no hay imágenes
 
     def display_image(self, image, index, original_path):
         row = index // self.columns_per_row
@@ -106,7 +127,6 @@ class DocCreatorApp:
         image_frame.grid(row=row, column=col, padx=10, pady=10, sticky="n")
         self.image_display_frames.append(image_frame)
 
-        # Resize image for display to fit within a reasonable size
         img_width, img_height = image.size
         max_size = 200
         if img_width > max_size or img_height > max_size:
@@ -117,19 +137,15 @@ class DocCreatorApp:
 
         photo = ImageTk.PhotoImage(image)
         image_label = tk.Label(image_frame, image=photo)
-        image_label.image = photo  # Keep a reference to prevent garbage collection
+        image_label.image = photo
         image_label.pack(pady=5)
 
-        # Dimensions input
         dimensions_frame = tk.Frame(image_frame)
         dimensions_frame.pack(pady=5)
 
         tk.Label(dimensions_frame, text="Ancho (cm):").grid(row=0, column=0)
         width_entry = tk.Entry(dimensions_frame, width=10)
         width_entry.grid(row=0, column=1)
-        # Convert pixels to cm for initial display (approx. 96 dpi)
-        # 1 inch = 2.54 cm, 1 inch = 96 pixels (common assumption for screen)
-        # So, 1 pixel = 2.54 / 96 cm
         width_cm = round(img_width * (2.54 / 96), 2)
         width_entry.insert(0, str(width_cm))
 
@@ -147,9 +163,32 @@ class DocCreatorApp:
             }
         )
 
+    def apply_global_dimensions(self):
+        """Aplica las dimensiones globales a todos los campos de entrada de las imágenes."""
+        try:
+            global_width = float(self.global_width_entry.get())
+            global_height = float(self.global_height_entry.get())
+
+            if global_width <= 0 or global_height <= 0:
+                messagebox.showwarning("Entrada inválida", "El ancho y la altura deben ser valores positivos.")
+                return
+
+            for entry_set in self.dimensions_entries:
+                entry_set["width"].delete(0, tk.END)
+                entry_set["width"].insert(0, str(global_width))
+                entry_set["height"].delete(0, tk.END)
+                entry_set["height"].insert(0, str(global_height))
+            
+            messagebox.showinfo("Aplicado", "Dimensiones aplicadas a todas las imágenes.")
+
+        except ValueError:
+            messagebox.showerror("Error de entrada", "Por favor, ingrese valores numéricos válidos para el ancho y la altura globales.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error al aplicar las dimensiones: {e}")
+
+
     def create_document_with_images(self):
-        # Gather dimensions and paths from the input fields
-        images_to_insert = []  # List of tuples: (image_path, width_cm, height_cm)
+        images_to_insert = []
         for entry_set in self.dimensions_entries:
             try:
                 width_cm = float(entry_set["width"].get())
@@ -158,56 +197,70 @@ class DocCreatorApp:
                 images_to_insert.append((original_path, width_cm, height_cm))
             except ValueError:
                 messagebox.showerror(
-                    "Input Error",
+                    "Error de entrada",
                     f"Dimensiones inválidas para imagen {os.path.basename(entry_set['original_path'])}. Ingrese solo números.",
                 )
                 return
 
         if not images_to_insert:
             messagebox.showinfo(
-                "No Images", "No images with valid dimensions to create the document."
+                "Sin imágenes", "No hay imágenes con dimensiones válidas para crear el documento."
             )
             return
 
-        # Ask the user for the save path of the .docx file
         doc_path = filedialog.asksaveasfilename(
             defaultextension=".docx",
-            filetypes=[("Word Documents", "*.docx")],
+            filetypes=[("Documentos de Word", "*.docx")],
             title="Guardar documento de Word",
         )
 
         if not doc_path:
-            return  # User cancelled
+            return
 
         try:
-            inserted_images, images_with_error = self.insert_image_with_size(doc_path, images_to_insert)
-            messagebox.showinfo("Éxito", f" {inserted_images} imágenes insertadas en documento guardado en {doc_path}, {images_with_error} imágenes no insertadas")
+            inserted_count, error_count = self.insert_image_with_size(doc_path, images_to_insert)
+            messagebox.showinfo("Éxito", f"{inserted_count} imágenes insertadas en el documento guardado en {doc_path}. {error_count} imágenes no se pudieron insertar.")
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo crear el document: {e}")
+            messagebox.showerror("Error", f"No se pudo crear el documento: {e}")
 
     def insert_image_with_size(self, doc_path, images_data):
-            document = Document()
-            correct_images = 0
-            for image_path, width_cm, height_cm in images_data:
-                try:
-                    document.add_paragraph()  # Add a paragraph to insert the image into
-                    paragraph = document.paragraphs[0]
-                    paragraph.add_run().add_picture(
-                        image_path, width=Cm(width_cm), height=Cm(height_cm)
+        document = Document()
+        inserted_count = 0
+        error_count = 0
+
+        for image_path, width_cm, height_cm in images_data:
+            try:
+                # Abrir la imagen con Pillow
+                img_pil = Image.open(image_path)
+
+                # Convertir a RGB si es necesario (para evitar problemas con modos como RGBA o P)
+                if img_pil.mode in ("RGBA", "P"):
+                    img_pil = img_pil.convert("RGB")
+
+                # Guardar la imagen en un buffer de memoria como PNG para docx
+                img_byte_arr = io.BytesIO()
+                img_pil.save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0) # Regresar al inicio del buffer
+
+                document.add_paragraph() # Esto crea un nuevo párrafo para cada imagen
+                paragraph = document.paragraphs[0]
+                paragraph.add_run().add_picture(
+                        img_byte_arr, width=Cm(width_cm), height=Cm(height_cm)
                     )
                     # Add image name and dimensions below the image
-                    paragraph.add_run("  ")  # Add an empty paragraph for spacing between images
-                    correct_images += 1
-                except Exception as e:
-                    continue  # Skip this image and continue with the next one
-            document.save(doc_path)
-            incorrect_images = len(images_data) - correct_images
-            return correct_images, incorrect_images
-            # raise e
+                paragraph.add_run("  ")  # Add an empty paragraph for spacing between images
+                inserted_count += 1
+
+            except Exception as e:
+                error_count += 1
+                continue
+
+        document.save(doc_path)
+        return inserted_count, error_count
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = DocCreatorApp(root)
-    root.geometry("800x600")  # Set initial window size
+    root.geometry("800x800") # Aumentar un poco el tamaño inicial de la ventana
     root.mainloop()
