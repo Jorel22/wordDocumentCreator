@@ -5,8 +5,8 @@ This is a python-based project to create a Microsoft Word document with images o
 Since this app is developed with tkinter, it can be run with the comand `python app.py`
 
 ## App building
-The app is build with pyinstaller and the single executable file can be created with the following command: \ 
-`pyinstaller --onefile --windowed --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\PIL;PIL" --add-data "C:\\Users\\jorda\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\docx;docx" --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\lxml;lxml" --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\PIL;." app.py`
+The app is build with pyinstaller and the single executable file can be created with the following command:  
+`pyinstaller --onefile --windowed --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\PIL;PIL" --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\docx;docx" --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\lxml;lxml" --add-data "C:\\Users\\user\\anaconda3\\envs\\py_tkinter\\lib\\site-packages\\PIL;." app.py`  
 It is important the flag `--onefile` so the result is only one executable file.
 
 ## App Usage
